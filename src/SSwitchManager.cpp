@@ -24,10 +24,11 @@ std::vector<CWindow*> SSwitchManager::getReverseCWindowList() {
     // Reverse the list
     std::reverse(windowList.begin(), windowList.end());
     // Add the urgent window to the front of the list.
-    if (g_pCompositor->windowExists(urgentWindow) && urgentWindow->m_bIsUrgent) {
+    if (g_pCompositor->windowExists(urgentWindow)) {
         windowList.insert(windowList.begin(), urgentWindow);
     }
-    if (active) {
+    // Add the active window to the back of the list
+    if (g_pCompositor->windowExists(active)) {
         windowList.push_back(active);
     }
     return windowList;
@@ -51,10 +52,11 @@ std::vector<CWindow*> SSwitchManager::getCWindowList() {
         }
     }
     // Add the urgent window to the front of the list.
-    if (g_pCompositor->windowExists(urgentWindow) && urgentWindow->m_bIsUrgent) {
+    if (g_pCompositor->windowExists(urgentWindow)) {
         windowList.insert(windowList.begin(), urgentWindow);
     }
-    if (active) {
+    // Add the active window to the back of the list
+    if (g_pCompositor->windowExists(active)) {
         windowList.push_back(active);
     }
     return windowList;
@@ -71,7 +73,7 @@ std::vector<SWindow> SSwitchManager::getWindowList() {
 }
 
 std::vector<SWindow> SSwitchManager::getReverseWindowList() {
-    hyprswitchr_log(LOG, "Getting window list");
+    hyprswitchr_log(LOG, "Getting reverse window list");
     std::vector<SWindow> windowList = {};
     for (auto w : SSwitchManager::getReverseCWindowList()) {
         SWindow window = SWindow(w);
@@ -80,52 +82,84 @@ std::vector<SWindow> SSwitchManager::getReverseWindowList() {
     return windowList;
 }
 
-void SSwitchManager::switchToUrgentOrPrevious() {
-    CWindow* urgentWindow = g_pCompositor->getUrgentWindow();
-    if (g_pCompositor->windowExists(urgentWindow) && urgentWindow->m_bIsUrgent) {
-        hyprswitchr_log(LOG, "Focusing urgent window: {}", urgentWindow->m_szTitle);
-        g_pCompositor->focusWindow(urgentWindow);
+void SSwitchManager::switchTrackedPrev() {
+    if (switchPosition > trackedSwitchList.size() - 1) {
+        switchPosition = 0;
+    } else {
+        switchPosition++;
     }
-    CWindow* lastWindow = SSwitchManager::getCWindowList().front();
-    if (g_pCompositor->windowExists(lastWindow)) {
-        hyprswitchr_log(LOG, "Focusing last window: {}", lastWindow->m_szTitle);
-        g_pCompositor->focusWindow(lastWindow);
-        return;
+    if (!g_pCompositor->windowExists(trackedSwitchList[switchPosition])) {
+        hyprswitchr_log(LOG, "Window doesn't exist refreshing list");
+        SSwitchManager::resetTrackedSwitch();
+        SSwitchManager::switchToUrgentOrPrev(true);
     }
-    hyprswitchr_log(LOG, "No urgent or last window found");
+    g_pCompositor->focusWindow(trackedSwitchList[switchPosition]);
 }
 
-void SSwitchManager::switchToUrgentOrNext() {
-    CWindow* urgentWindow = g_pCompositor->getUrgentWindow();
-    if (g_pCompositor->windowExists(urgentWindow) && urgentWindow->m_bIsUrgent) {
-        hyprswitchr_log(LOG, "Focusing urgent window: {}", urgentWindow->m_szTitle);
-        g_pCompositor->focusWindow(urgentWindow);
+void SSwitchManager::switchTrackedNext() {
+    if (switchPosition > trackedSwitchList.size() - 1) {
+        switchPosition = 0;
+    } else {
+        switchPosition++;
     }
-    CWindow* lastWindow = SSwitchManager::getReverseCWindowList().front();
-    if (g_pCompositor->windowExists(lastWindow)) {
-        hyprswitchr_log(LOG, "Focusing last window: {}", lastWindow->m_szTitle);
-        g_pCompositor->focusWindow(lastWindow);
+    if (!g_pCompositor->windowExists(trackedSwitchList[switchPosition])) {
+        hyprswitchr_log(LOG, "Window doesn't exist refreshing list");
+        SSwitchManager::resetTrackedSwitch();
+        SSwitchManager::switchToUrgentOrNext(true);
+    }
+    g_pCompositor->focusWindow(trackedSwitchList[switchPosition]);
+}
+
+void SSwitchManager::switchToUrgentOrPrev(bool track) {
+    if (track) {
+        trackedSwitchList = switchPosition == -1 ? SSwitchManager::getCWindowList() : trackedSwitchList;
+        return SSwitchManager::switchTrackedPrev();
+    }
+    auto windowList = SSwitchManager::getCWindowList();
+    if (!g_pCompositor->windowExists(windowList.front())) {
+        hyprswitchr_log(LOG, "No urgent or previous window found");
         return;
     }
-    hyprswitchr_log(LOG, "No urgent or last window found");
+    hyprswitchr_log(LOG, "Focusing urgent or previous window: {}", windowList.front()->m_szTitle);
+    g_pCompositor->focusWindow(windowList.front());
+}
+
+void SSwitchManager::switchToUrgentOrNext(bool track) {
+    if (track) {
+        trackedSwitchList = switchPosition == -1 ? SSwitchManager::getReverseCWindowList() : trackedSwitchList;
+        return SSwitchManager::switchTrackedPrev();
+    }
+    auto windowList = SSwitchManager::getReverseCWindowList();
+    if (!g_pCompositor->windowExists(windowList.front())) {
+        hyprswitchr_log(LOG, "No urgent or next window found");
+        return;
+    }
+    hyprswitchr_log(LOG, "Focusing urgent or next window: {}", windowList.front()->m_szTitle);
+    g_pCompositor->focusWindow(windowList.front());
 }
 
 void SSwitchManager::switchToMatchingUrgentOrPrev(std::string regex) {
     CWindow* matchingWindow = g_pCompositor->getWindowByRegex(regex);
-    if (g_pCompositor->windowExists(matchingWindow)) {
-        hyprswitchr_log(LOG, "Focusing matching window: {}", matchingWindow->m_szTitle);
-        g_pCompositor->focusWindow(matchingWindow);
+    if (!g_pCompositor->windowExists(matchingWindow)) {
+        SSwitchManager::switchToUrgentOrPrev();
     }
-    SSwitchManager::switchToUrgentOrPrevious();
+    hyprswitchr_log(LOG, "Focusing matching window: {}", matchingWindow->m_szTitle);
+    g_pCompositor->focusWindow(matchingWindow);
 }
 
 void SSwitchManager::switchToMatchingUrgentOrNext(std::string regex) {
     CWindow* matchingWindow = g_pCompositor->getWindowByRegex(regex);
-    if (g_pCompositor->windowExists(matchingWindow)) {
-        hyprswitchr_log(LOG, "Focusing matching window: {}", matchingWindow->m_szTitle);
-        g_pCompositor->focusWindow(matchingWindow);
+    if (!g_pCompositor->windowExists(matchingWindow)) {
+        SSwitchManager::switchToUrgentOrNext();
     }
-    SSwitchManager::switchToUrgentOrNext();
+    hyprswitchr_log(LOG, "Focusing matching window: {}", matchingWindow->m_szTitle);
+    g_pCompositor->focusWindow(matchingWindow);
+}
+
+void SSwitchManager::resetTrackedSwitch() {
+    hyprswitchr_log(LOG, "Ending switch");
+    switchPosition = -1;
+    trackedSwitchList.clear();
 }
 
 // // Return a vector of SWindow objects in descending order of activeTimestamp, and with urgent windows first.
