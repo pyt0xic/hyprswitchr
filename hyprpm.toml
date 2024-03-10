@@ -1,0 +1,11 @@
+[repository]
+name = "hyprswitchr"
+authors = ["pyt0xic"]
+
+[hyprswitchr]
+description = "An urgent-first/LRU window switcher for Hyprland, inspired by swayr"
+authors = ["pyt0xic"]
+output = "hyprswitchr.so"
+build = [
+    "make all"
+]
