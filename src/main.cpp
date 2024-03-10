@@ -18,43 +18,43 @@ static std::unordered_map<uint32_t, CWorkspace*> PWORKSPACES;
 
 static SSwitchManager                            g_pSwitchManager;
 
-// fired when a window is mapped
-void onWindowOpen(void* self, std::any data) {
-    hyprswitchr_log(LOG, "Window opened");
-    auto* const PWINDOW = std::any_cast<CWindow*>(data);
-    g_pSwitchManager.addWindow(PWINDOW);
-}
-
-// fired when a window is unmapped
-void onWindowClose(void* self, std::any data) {
-    hyprswitchr_log(LOG, "Window closed");
-    auto* const PWINDOW = std::any_cast<CWindow*>(data);
-    g_pSwitchManager.removeWindow(PWINDOW);
-}
-
-// fired when a window changes workspace
+// // fired when a window is mapped
+// void onWindowOpen(void* self, std::any data) {
+//     hyprswitchr_log(LOG, "Window opened");
+//     auto* const PWINDOW = std::any_cast<CWindow*>(data);
+//     g_pSwitchManager.addWindow(PWINDOW);
+// }
+//
+// // fired when a window is unmapped
+// void onWindowClose(void* self, std::any data) {
+//     hyprswitchr_log(LOG, "Window closed");
+//     auto* const PWINDOW = std::any_cast<CWindow*>(data);
+//     g_pSwitchManager.removeWindow(PWINDOW);
+// }
+//
+// // fired when a window changes workspace
 // void onWindowMove(void* self, std::any data) {
 //     std::vector<void*> moveData = std::any_cast<std::vector<void*>>(data);
 //     CWindow*           window   = static_cast<CWindow*>(moveData.front());
 //     CWorkspace*        ws       = static_cast<CWorkspace*>(moveData.back());
 // }
-
-// fired on active window change
-void onActiveWindowChange(void* self, std::any data) {
-    hyprswitchr_log(LOG, "Active window changed");
-    auto* const PWINDOW = std::any_cast<CWindow*>(data);
-    g_pSwitchManager.updateWindow(PWINDOW);
-    // if (PWINDOW->m_bIsUrgent) {
-    //     g_pSwitchManager.setWindowResolved(PWINDOW);
-    // }
-}
-
-// fired when a window requests urgent
-void onWindowUrgentRequest(void* self, std::any data) {
-    hyprswitchr_log(LOG, "Window urgent request");
-    auto* const PWINDOW = std::any_cast<CWindow*>(data);
-    g_pSwitchManager.updateWindow(PWINDOW);
-}
+//
+// // fired on active window change
+// void onActiveWindowChange(void* self, std::any data) {
+//     hyprswitchr_log(LOG, "Active window changed");
+//     auto* const PWINDOW = std::any_cast<CWindow*>(data);
+//     g_pSwitchManager.updateWindow(PWINDOW);
+//     // if (PWINDOW->m_bIsUrgent) {
+//     //     g_pSwitchManager.setWindowResolved(PWINDOW);
+//     // }
+// }
+//
+// // fired when a window requests urgent
+// void onWindowUrgentRequest(void* self, std::any data) {
+//     hyprswitchr_log(LOG, "Window urgent request");
+//     auto* const PWINDOW = std::any_cast<CWindow*>(data);
+//     g_pSwitchManager.updateWindow(PWINDOW);
+// }
 
 // fired when a window title changes
 // void onWindowTitleChange(void* self, std::any data) {
@@ -63,14 +63,24 @@ void onWindowUrgentRequest(void* self, std::any data) {
 //     g_pSwitchManager.updateWindow(PWINDOW);
 // }
 
-void switchToUrgentOrLast(std::string _) {
+void switchToUrgentOrPrev(std::string _) {
     hyprswitchr_log(LOG, "Switching to urgent or last");
-    g_pSwitchManager.switchToUrgentOrLast();
+    g_pSwitchManager.switchToUrgentOrPrevious();
 }
 
-void switchToMatchingOrUrgentOrLast(std::string regex) {
+void switchToMatchingUrgentOrPrev(std::string regex) {
     hyprswitchr_log(LOG, "Switching to matching or urgent or last");
-    g_pSwitchManager.switchToMatchingOrUrgentOrLast(regex);
+    g_pSwitchManager.switchToMatchingUrgentOrPrev(regex);
+}
+
+void switchToUrgentOrNext(std::string _) {
+    hyprswitchr_log(LOG, "Switching to urgent or next");
+    g_pSwitchManager.switchToUrgentOrNext();
+}
+
+void switchToMatchingUrgentOrNext(std::string regex) {
+    hyprswitchr_log(LOG, "Switching to matching or urgent or next");
+    g_pSwitchManager.switchToMatchingUrgentOrNext(regex);
 }
 
 std::string getPrettyWindowList(std::vector<SWindow> windowList) {
@@ -124,6 +134,15 @@ std::string getWindowList(eHyprCtlOutputFormat format, std::string _) {
     return result;
 }
 
+std::string getReverseWindowList(eHyprCtlOutputFormat format, std::string _) {
+    hyprswitchr_log(LOG, "Getting window list with format {}", format == eHyprCtlOutputFormat::FORMAT_JSON ? "JSON" : "PRETTY");
+    auto windowList = g_pSwitchManager.getReverseWindowList();
+    hyprswitchr_log(LOG, "Got window list of length {}", windowList.size());
+    auto result = format == eHyprCtlOutputFormat::FORMAT_JSON ? getWindowJson(windowList) : getPrettyWindowList(windowList);
+    hyprswitchr_log(LOG, "Window list: {}", result);
+    return result;
+}
+
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     PHANDLE          = handle;
     g_pSwitchManager = SSwitchManager();
@@ -147,9 +166,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     // hyprswitchr_log(LOG, "Registered title window callback");
 
     // Register dispatchers
-    HyprlandAPI::addDispatcher(PHANDLE, "switch-to-urgent-or-last", switchToUrgentOrLast);
-    HyprlandAPI::addDispatcher(PHANDLE, "switch-to-matching-or-urgent-or-last", switchToMatchingOrUrgentOrLast);
+    HyprlandAPI::addDispatcher(PHANDLE, "switch-to-urgent-or-prev", switchToUrgentOrPrev);
+    HyprlandAPI::addDispatcher(PHANDLE, "switch-to-urgent-or-next", switchToUrgentOrNext);
+    HyprlandAPI::addDispatcher(PHANDLE, "switch-to-matching-urgent-or-prev", switchToMatchingUrgentOrPrev);
+    HyprlandAPI::addDispatcher(PHANDLE, "switch-to-matching-urgent-or-next", switchToMatchingUrgentOrNext);
     HyprlandAPI::registerHyprCtlCommand(PHANDLE, SHyprCtlCommand("windowlist", true, getWindowList));
+    HyprlandAPI::registerHyprCtlCommand(PHANDLE, SHyprCtlCommand("windowlist-reverse", true, getReverseWindowList));
 
     return {"hyprswitchr", "An urgent-first/most-recent window switcher inspired by swayr", "pyt0xic", "0.0.1"};
 }

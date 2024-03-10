@@ -2,15 +2,14 @@
 
 class SSwitchManager {
   private:
-    std::list<SWindow> windows;
+    std::vector<CWindow*> getCWindowList();
+    std::vector<CWindow*> getReverseCWindowList();
 
   public:
     std::vector<SWindow> getWindowList();
-    void                 switchToUrgentOrLast();
-    void                 switchToMatchingOrUrgentOrLast(std::string title);
-
-    void                 addWindow(CWindow* window);
-    void                 removeWindow(CWindow* window);
-    void                 updateWindow(CWindow* window);
-    void                 setActiveWindow(CWindow* window);
+    std::vector<SWindow> getReverseWindowList();
+    void                 switchToUrgentOrPrevious();
+    void                 switchToUrgentOrNext();
+    void                 switchToMatchingUrgentOrPrev(std::string title);
+    void                 switchToMatchingUrgentOrNext(std::string title);
 };
